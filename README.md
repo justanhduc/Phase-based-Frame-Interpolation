@@ -4,9 +4,10 @@ This is my personal implementation of the paper "Phase-based frame interpolation
 
 Also, if you use this implementation, you must cite the following paper:
 
-``` S. Meyer, O. Wang, H. Zimmer, M. Grosse and A. Sorkine-Hornung
-    Phase-based frame interpolation for video
-    2015 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)
+``` 
+S. Meyer, O. Wang, H. Zimmer, M. Grosse and A. Sorkine-Hornung
+Phase-based frame interpolation for video
+2015 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)
 ``` 
 
 This implementation uses a version of [pyrtools](https://github.com/LabForComputationalVision/pyPyrTools) by Eero Simoncelli in Python modified by me. Please check this [website](https://github.com/LabForComputationalVision/matlabPyrTools) for more information.
