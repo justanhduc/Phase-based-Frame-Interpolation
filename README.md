@@ -1,5 +1,4 @@
 # Phase-based-Frame-Interpolation
-Frame interpolation
 
 This is my personal implementation of the paper "Phase-based frame interpolation for Video". To be precise, this implementation almost matches this [MATLAB implementation](https://github.com/owang/PhaseBasedInterpolation). As claimed by the orginal author of the MATLAB code, the implementation is highly un-optimized. Nevertheless, I added GPU support to reduce the processing time while still maintaining the clarity of the method. 
 
