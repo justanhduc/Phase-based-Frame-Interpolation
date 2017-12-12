@@ -26,6 +26,12 @@ This implementation uses a version of [pyrtools](https://github.com/LabForComput
 ## Usages
 
 ```
-python frame_interp.py
+python demo.py image1_path image2_path --dev cpu --n_frames 1 --save 1 --show 1
+
 ```
+
+Use help to see more options.
+
+## Results
+![Two interpolated frames](https://github.com/justanhduc/Phase-based-Frame-Interpolation/blob/master/example.png)
 
