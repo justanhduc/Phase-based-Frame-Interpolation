@@ -1,19 +1,14 @@
 import numpy as np
-from scipy import misc
 from pyPyrTools import SCFpyr
 from skimage import color
-from matplotlib import pyplot as plt
-import cupy as cp
 from skimage import transform
 
 
-def decompose(img, ht, n_orientations, t_width, scale, n_scales):
-    xp = cp.get_array_module(img)
-    lab = cp.array(color.rgb2lab(cp.asnumpy(img))) / 255. if xp.__name__ == 'cupy' else color.rgb2lab(img) / 255.
+def decompose(img, ht, n_orientations, t_width, scale, n_scales, xp=np):
+    lab = xp.array(color.rgb2lab(img)) / 255.
     pyramids = {'pyramids': [], 'high_pass': [], 'low_pass': [], 'phase': [], 'amplitude': [], 'pind': 0}
     for i in range(img.shape[-1]):
-    # for i in [0]:
-        pyr = SCFpyr(lab[..., i], ht, n_orientations - 1, t_width, scale, n_scales)
+        pyr = SCFpyr(lab[..., i], ht, n_orientations - 1, t_width, scale, n_scales, xp)
         pyramids['pyramids'].append(pyr)
         pyramids['high_pass'].append(pyr.pyrHigh())
         pyramids['low_pass'].append(pyr.pyrLow())
@@ -31,7 +26,8 @@ def compute_phase_difference(L, R, *args):
         phase_diff_new = shift_correction(phase_diff, L['pyramids'][i], *args)
         unwrapped_phase_diff = []
         for j in range(len(phase_diff_new)):
-            unwrapped_phase_diff.append(unwrap(xp.stack([phase_diff_new[j], list(phase_diff)[j]], 0))[0])
+            unwrapped_phase_diff.append(unwrap(xp.stack([phase_diff_new[j], list(phase_diff)[j]], 0),
+                                               xp=L['pyramids'][0].xp)[0])
         phase_diff_out.append(unwrapped_phase_diff)
     return phase_diff_out
 
@@ -71,7 +67,7 @@ def correct_level(pyr, pyramid, level, *args):
             index_hi = pyramid.bandIndex(level, band)
             high_level = pyr[index_hi]
             unwrapped = pyramid.xp.stack([low_level.reshape(-1) / scale, high_level.reshape(-1)], 0)
-            unwrapped = unwrap(unwrapped)
+            unwrapped = unwrap(unwrapped, xp=pyramid.xp)
             high_level = unwrapped[1]
             high_level = pyramid.xp.reshape(high_level, dims)
             angle_diff = pyramid.xp.arctan2(pyramid.xp.sin(high_level-low_level/scale),
@@ -96,9 +92,7 @@ def correct_level(pyr, pyramid, level, *args):
     return out_level
 
 
-def unwrap(p, cutoff=np.pi):
-    xp = cp.get_array_module(p)
-
+def unwrap(p, cutoff=np.pi, xp=np):
     def local_unwrap(p, cutoff):
         dp = p[1] - p[0]
         dps = xp.mod(dp + np.pi, 2 * np.pi) - np.pi
@@ -138,18 +132,19 @@ def reconstruct_image(pyr):
     if xp.__name__ == 'numpy':
         out_img = color.lab2rgb(out_img * 255.)
     else:
-        out_img = color.lab2rgb(cp.asnumpy(out_img) * 255.)
+        out_img = color.lab2rgb(xp.asnumpy(out_img) * 255.)
     return out_img
 
 
-def interpolate_frame(img1, img2, n_frames=1, n_orientations=8, t_width=1, scale=0.5, limit=.4, min_size=15, max_levels=23):
+def interpolate_frame(img1, img2, n_frames=1, n_orientations=8, t_width=1, scale=0.5, limit=.4, min_size=15,
+                      max_levels=23, xp=np):
     h, w, l = img1.shape
     n_scales = min(np.ceil(np.log2(min((h, w))) / np.log2(1. / scale) -
                            (np.log2(min_size) / np.log2(1 / scale))).astype('int'), max_levels)
     step = 1. / (n_frames + 1)
 
-    L = decompose(img1, n_scales, n_orientations, t_width, scale, n_scales)
-    R = decompose(img2, n_scales, n_orientations, t_width, scale, n_scales)
+    L = decompose(img1, n_scales, n_orientations, t_width, scale, n_scales, xp)
+    R = decompose(img2, n_scales, n_orientations, t_width, scale, n_scales, xp)
 
     phase_diff = compute_phase_difference(L, R, scale, limit)
 
@@ -160,31 +155,3 @@ def interpolate_frame(img1, img2, n_frames=1, n_orientations=8, t_width=1, scale
             pyr.pyr = new_pyr[i]
         new_frames.append(reconstruct_image(L))
     return new_frames
-
-
-if __name__ == '__main__':
-    cp.cuda.Device(1).use()
-    img1 = cp.array(misc.imread('E:/DB/Videos/DAVIS/JPEGImages/480p/surf/00003.jpg'))
-    img2 = cp.array(misc.imread('E:/DB/Videos/DAVIS/JPEGImages/480p/surf/00005.jpg'))
-
-    import time
-
-    start = time.time()
-    new_frames_gpu = interpolate_frame(img1, img2, n_frames=1, scale=.5**.25)
-    print('Took %.2fm on GPU.' % ((time.time() - start) / 60.))
-
-    img1 = cp.asnumpy(img1)
-    img2 = cp.asnumpy(img2)
-    start = time.time()
-    new_frames_cpu = interpolate_frame(img1, img2, n_frames=1, scale=.5**.25)
-    print('Took %.2fm on CPU.' % ((time.time() - start) / 60.))
-
-    plt.figure(0)
-    plt.imshow(img1)
-    plt.figure(1)
-    plt.imshow(new_frames_gpu[0])
-    plt.figure(2)
-    plt.imshow(new_frames_cpu[0])
-    plt.figure(3)
-    plt.imshow(img2)
-    plt.show()
